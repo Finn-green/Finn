@@ -9096,26 +9096,26 @@ input, textarea, select {
 /* ▼▼▼ 【全新V2.0 | 安卓键盘终极修复】这是让输入框悬浮的核心样式 ▼▼▼ */
 
 /* 1. 当键盘弹出时，为聊天界面添加一个class，用它来控制内部元素的行为 */
-#phone-screen.keyboard-visible #chat-interface-screen {
+#phone-screen.input-area-raised #chat-interface-screen {
     /* 确保聊天界面依然是定位的锚点 */
     position: relative;
 }
 
 /* 2. 【核心】让输入框区域“脱离”文档流，变为固定定位，悬浮在所有内容之上 */
-#phone-screen.keyboard-visible #chat-input-area {
+#phone-screen.input-area-raised #chat-input-area {
     position: fixed; /* 从 absolute 改为 fixed，这是悬浮的关键 */
     left: 0;
     right: 0;
     width: auto; /* 宽度自动撑满 */
     z-index: 250; /* 确保层级最高，不会被任何东西遮挡 */
     /* 【关键】使用CSS变量来动态设置它距离底部的距离，这个值将由JS计算得出 */
-    bottom: var(--keyboard-inset-height, 0px);
+    bottom: var(--keyboard-offset-height, 0px);
     transition: bottom 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* 添加平滑的弹出动画 */
 }
 
 /* 3. 【重要】当键盘弹出时，为聊天消息区域增加一个底部的内边距 */
 /*    这个内边距的高度约等于输入框的高度，确保最后一条消息不会被悬浮的输入框遮挡 */
-#phone-screen.keyboard-visible #chat-messages {
+#phone-screen.input-area-raised #chat-messages {
     padding-bottom: 150px !important; /* 使用 !important 强制覆盖旧样式 */
 }
 
@@ -10392,7 +10392,19 @@ input, textarea, select {
                         <button id="reset-sound-btn" class="form-button-secondary" style="margin-top: 0; padding: 12px;">重置</button>
                     </div>
                 </div>
-
+<!-- ▼▼▼ 【全新】在这里粘贴安卓键盘弹出高度调节功能 ▼▼▼ -->
+<hr style="width: 80%; opacity: 0.3; margin: 30px 0;">
+<div class="form-group" style="width:100%;">
+    <label for="keyboard-offset-slider">安卓键盘弹出高度 ( <span id="keyboard-offset-value">250px</span> )</label>
+    <input type="range" id="keyboard-offset-slider" min="0" max="400" step="5" value="250" style="width: 100%; margin-top: 8px;">
+    <p style="font-size: 12px; color: #8a8a8a; margin-top: 8px; line-height: 1.5;">
+        此功能用于手动适配安卓键盘。点击输入框后，输入区域将弹出到您设定的高度。<br>
+        • <b>带底部导航栏的手机：</b>建议值为 <b>250-300</b>。<br>
+        • <b>全面屏手势的手机：</b>建议值为 <b>200-250</b>。<br>
+        • 将高度设置为 <b>0</b> 将禁用此弹出功能。
+    </p>
+</div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
                 <!-- EPhone 图标设置 -->
                 <hr style="width: 80%; opacity: 0.3; margin: 30px 0;">
                 <div style="width:100%; text-align: left; margin-bottom: 15px;">
@@ -14350,6 +14362,7 @@ async function loadAllDataFromDB() {
         globalChatBackground: '',
         enableAiDrawing: true,
     chatActionButtonsOrder: null
+    , keyboardOffset: 250 // 安卓键盘弹出高度，默认250px
     };
     state.globalSettings = { ...defaultGlobalSettings, ...(loadedGlobalSettings || {}) };
     state.globalSettings.appIcons = { ...defaultGlobalSettings.appIcons, ...(state.globalSettings.appIcons || {}) };
@@ -15185,6 +15198,20 @@ async function loadAllDataFromDB() {
             // 渲染 EPhone 和 CPhone 的图标设置
             renderIconSettings();
             renderCPhoneIconSettings(); // <-- 新增调用
+            // 【全新】为键盘高度调节滑块绑定事件
+const keyboardOffsetSlider = document.getElementById('keyboard-offset-slider');
+const keyboardOffsetValue = document.getElementById('keyboard-offset-value');
+
+// 初始化显示
+const currentOffset = state.globalSettings.keyboardOffset ?? 250;
+keyboardOffsetSlider.value = currentOffset;
+keyboardOffsetValue.textContent = `${currentOffset}px`;
+
+// 监听滑动
+keyboardOffsetSlider.addEventListener('input', () => {
+    keyboardOffsetValue.textContent = `${keyboardOffsetSlider.value}px`;
+});
+            
 
             // (其他逻辑保持不变)
             document.getElementById('global-css-input').value = state.globalSettings.globalCss || '';
@@ -32792,6 +32819,8 @@ async function importAppearanceSettings(file) {
         applyCustomFont(state.globalSettings.fontUrl);
         applyStatusBarVisibility();
         applyWidgetData();
+        javascript
+applyKeyboardOffset();
 
         // 7. 重新渲染外观设置页面，以显示最新的设置值
         renderWallpaperScreen();
@@ -38487,6 +38516,7 @@ document.getElementById('save-wallpaper-btn').addEventListener('click', async ()
     state.globalSettings.globalCss = document.getElementById('global-css-input').value.trim();
     state.globalSettings.notificationSoundUrl = document.getElementById('notification-sound-url-input').value.trim();
     state.globalSettings.showStatusBar = document.getElementById('status-bar-toggle-switch').checked;
+    state.globalSettings.keyboardOffset = parseInt(document.getElementById('keyboard-offset-slider').value);
     
     // 一次性保存所有全局设置
     await db.globalSettings.put(state.globalSettings);
@@ -38497,6 +38527,7 @@ document.getElementById('save-wallpaper-btn').addEventListener('click', async ()
     applyAppIcons();
     applyGlobalCss(state.globalSettings.globalCss);
     applyStatusBarVisibility();
+    applyKeyboardOffset();
 
     alert('外观设置已保存并应用！');
     showScreen('home-screen');
@@ -39173,84 +39204,51 @@ document.getElementById('copy-timestamp-btn').addEventListener('click', copyMess
 <!-- ▼▼▼ 【全新V2.0 | 安卓键盘终极修复】这是让输入框悬浮的核心JS代码 ▼▼▼ -->
 <script>
 /**
- * 核心修复函数 V2.0：使用 visualViewport API 智能悬浮输入框
+ * 核心修复函数 V2.0：手动触发输入框悬浮
  * 
  * 原理：
- * 1. 监听现代浏览器提供的 visualViewport API 的 'resize' 事件。
- * 2. 当键盘弹出时，这个可视区域的高度会变小。
- * 3. 我们计算出键盘的高度，并将其设置为一个CSS变量。
- * 4. 通过添加一个 'keyboard-visible' class，激活我们新写的CSS规则，
- *    让输入框变为 position:fixed 并使用那个CSS变量，从而精确地悬浮在键盘顶部。
+ * 1. 监听整个输入区域的点击事件。
+ * 2. 当点击发生时，给 phone-screen 添加一个 class，触发我们在 CSS 中定义好的悬浮样式。
+ * 3. 悬浮的高度由一个 CSS 变量 --keyboard-offset-height 控制，这个变量的值由用户在设置中决定。
+ * 4. 当输入框失去焦点时，移除 class，让输入框恢复原位。
  */
-function setupSmartKeyboardFix() {
+function setupManualKeyboardPopup() {
     const phoneScreen = document.getElementById('phone-screen');
+    const chatInputArea = document.getElementById('chat-input-area');
     const chatInput = document.getElementById('chat-input');
     
-    // 检查浏览器是否支持这个现代API
-    if ('visualViewport' in window) {
-        const viewport = window.visualViewport;
-
-        // 定义当可视区域变化时要执行的函数
-        const viewportResizeHandler = () => {
-            // 键盘高度 = 整个窗口的高度 - 当前可见区域的高度
-            const keyboardHeight = window.innerHeight - viewport.height;
-            
-            // 设置我们之前在CSS里定义的那个变量
-            phoneScreen.style.setProperty('--keyboard-inset-height', `${keyboardHeight}px`);
-
-            // 如果键盘高度大于一个阈值（比如100px），就认为键盘已经弹出了
-            if (keyboardHeight > 100) {
-                phoneScreen.classList.add('keyboard-visible');
-            } else {
-                phoneScreen.classList.remove('keyboard-visible');
+    if (chatInputArea && chatInput) {
+        // 当点击整个输入区域时
+        chatInputArea.addEventListener('click', () => {
+            // 如果输入框没有弹出，就弹出它
+            if (!phoneScreen.classList.contains('input-area-raised')) {
+                phoneScreen.classList.add('input-area-raised');
+                chatInput.focus(); // 并让输入框获得焦点
             }
-        };
-
-        // 当用户点击输入框时，开始监听可视区域的变化
-        chatInput.addEventListener('focus', () => {
-            viewport.addEventListener('resize', viewportResizeHandler);
         });
 
-        // 当用户点击别处，输入框失去焦点时，停止监听并恢复原状
+        // 当输入框失去焦点时（比如点击了聊天内容区）
         chatInput.addEventListener('blur', () => {
-            viewport.removeEventListener('resize', viewportResizeHandler);
-            phoneScreen.classList.remove('keyboard-visible');
-        });
-
-    } else {
-        // 如果浏览器太老，不支持新API，就回退到旧的、不太可靠的方法
-        console.warn("浏览器不支持 visualViewport API，键盘遮挡问题可能无法完美解决。");
-        chatInput.addEventListener('focus', () => {
-            setTimeout(() => {
-                chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 300);
+            // 收回弹出的输入框
+            phoneScreen.classList.remove('input-area-raised');
         });
     }
 }
 
+/**
+ * 【辅助函数】根据用户设置，应用键盘弹出高度
+ */
+function applyKeyboardOffset() {
+    // 从全局设置中读取用户保存的高度值，如果不存在则默认为 250
+    const offsetValue = state.globalSettings.keyboardOffset ?? 250;
+    // 将这个值设置到 CSS 变量中，让样式表可以使用
+    document.documentElement.style.setProperty('--keyboard-offset-height', `${offsetValue}px`);
+}
+
 // 确保在所有DOM元素加载完毕后执行修复函数
-document.addEventListener('DOMContentLoaded', setupSmartKeyboardFix);
+document.addEventListener('DOMContentLoaded', setupManualKeyboardPopup);
 </script>
 <!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
