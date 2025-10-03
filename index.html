@@ -9038,6 +9038,88 @@ input, textarea, select {
     overflow: hidden;
 }
 /* ▲▲▲ 删除到这里结束 ▲▲▲ */
+/* ▼▼▼ 【全新】这是为表情包提示词和搜索功能新增的样式 ▼▼▼ */
+
+/* 1. 让表情项成为一个垂直排列的容器 */
+.sticker-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* 在图片和文字之间增加一点间距 */
+}
+
+/* 2. 创建一个新的图片包装器，负责显示图片和定位删除按钮 */
+.sticker-item .sticker-image-wrapper {
+    position: relative; /* 让删除按钮可以相对于它定位 */
+    aspect-ratio: 1 / 1;
+    background-color: white;
+    border-radius: 10px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* 3. 表情名称（提示词）的样式 */
+.sticker-item .sticker-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+    white-space: nowrap;      /* 强制不换行 */
+    overflow: hidden;         /* 超出部分隐藏 */
+    text-overflow: ellipsis;  /* 超出部分显示省略号 */
+    padding: 0 2px;
+}
+
+/* 4. 修正删除按钮，让它相对于图片包装器定位 */
+.sticker-item .sticker-image-wrapper .delete-btn {
+    display: none;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    background-color: #ff3b30;
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 2px solid white;
+}
+
+/* 5. 修正管理模式下的删除按钮显示 */
+#sticker-grid.management-mode .sticker-item .sticker-image-wrapper .delete-btn {
+    display: block;
+}
+/* ▲▲▲ 新增样式结束 ▲▲▲ */
+/* ▼▼▼ 【全新V2.0 | 安卓键盘终极修复】这是让输入框悬浮的核心样式 ▼▼▼ */
+
+/* 1. 当键盘弹出时，为聊天界面添加一个class，用它来控制内部元素的行为 */
+#phone-screen.keyboard-visible #chat-interface-screen {
+    /* 确保聊天界面依然是定位的锚点 */
+    position: relative;
+}
+
+/* 2. 【核心】让输入框区域“脱离”文档流，变为固定定位，悬浮在所有内容之上 */
+#phone-screen.keyboard-visible #chat-input-area {
+    position: fixed; /* 从 absolute 改为 fixed，这是悬浮的关键 */
+    left: 0;
+    right: 0;
+    width: auto; /* 宽度自动撑满 */
+    z-index: 250; /* 确保层级最高，不会被任何东西遮挡 */
+    /* 【关键】使用CSS变量来动态设置它距离底部的距离，这个值将由JS计算得出 */
+    bottom: var(--keyboard-inset-height, 0px);
+    transition: bottom 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* 添加平滑的弹出动画 */
+}
+
+/* 3. 【重要】当键盘弹出时，为聊天消息区域增加一个底部的内边距 */
+/*    这个内边距的高度约等于输入框的高度，确保最后一条消息不会被悬浮的输入框遮挡 */
+#phone-screen.keyboard-visible #chat-messages {
+    padding-bottom: 150px !important; /* 使用 !important 强制覆盖旧样式 */
+}
+
+/* ▲▲▲ 新增样式结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -10160,6 +10242,14 @@ input, textarea, select {
                     <span class="panel-btn" id="upload-sticker-btn">上传</span>
                 </div>
             </div>
+<!-- ▼▼▼ 在这里粘贴新的搜索栏代码 ▼▼▼ -->
+<div style="padding: 10px 15px 5px 15px; border-bottom: 1px solid var(--border-color); background-color: var(--secondary-bg);">
+    <div style="position: relative; display: flex; align-items: center;">
+        <input type="search" id="sticker-search-input" placeholder="搜索表情名称..." style="width: 100%; padding: 8px 35px 8px 15px; border-radius: 18px; border: 1px solid var(--border-color); font-size: 14px; box-sizing: border-box; -webkit-appearance: none;">
+        <button id="sticker-search-btn" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px;">🔍</button>
+    </div>
+</div>
+<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
             <div id="sticker-category-tabs"></div>
             <div id="sticker-grid"></div>
 
@@ -15348,84 +15438,91 @@ async function loadAllDataFromDB() {
         }
         // ▲▲▲ 替换结束 ▲▲▲
         
-        // ▼▼▼ 【请用这个支持分类的 V2.0 版本】替换旧的 renderStickerPanel 函数 ▼▼▼
-        /**
-         * 【V2.0 | 分类支持版】渲染表情面板
-         * @param {boolean} rerenderTabs - 是否需要重新渲染顶部的分类页签
-         */
-        async function renderStickerPanel(rerenderTabs = true) {
-            const grid = document.getElementById('sticker-grid');
-            const tabsContainer = document.getElementById('sticker-category-tabs');
-            
-            // --- 1. 渲染分类页签 (仅在需要时) ---
-            if (rerenderTabs) {
-                tabsContainer.innerHTML = '';
-                const categories = await db.stickerCategories.toArray();
-                
-                // 添加“全部”和“未分类”页签
-                tabsContainer.innerHTML += `
-                    <button class="sticker-category-tab ${activeStickerCategoryId === 'all' ? 'active' : ''}" data-category-id="all">全部</button>
-                `;
-                categories.forEach(cat => {
-                     tabsContainer.innerHTML += `
-                        <button class="sticker-category-tab ${activeStickerCategoryId === cat.id ? 'active' : ''}" data-category-id="${cat.id}">${cat.name}</button>
-                    `;
-                });
-                tabsContainer.innerHTML += `
-                    <button class="sticker-category-tab ${activeStickerCategoryId === 'uncategorized' ? 'active' : ''}" data-category-id="uncategorized">未分类</button>
-                `;
-            }
+// ▼▼▼ 【请用这个 V2.1 | 支持搜索和提示词的版本】替换旧的 renderStickerPanel 函数 ▼▼▼
+/**
+ * 【V2.1 | 支持搜索和提示词】渲染表情面板
+ * @param {boolean} rerenderTabs - 是否需要重新渲染顶部的分类页签
+ */
+async function renderStickerPanel(rerenderTabs = true) {
+    const grid = document.getElementById('sticker-grid');
+    const tabsContainer = document.getElementById('sticker-category-tabs');
+    
+    // --- 1. 渲染分类页签 (逻辑不变) ---
+    if (rerenderTabs) {
+        tabsContainer.innerHTML = '';
+        const categories = await db.stickerCategories.toArray();
+        
+        tabsContainer.innerHTML += `<button class="sticker-category-tab ${activeStickerCategoryId === 'all' ? 'active' : ''}" data-category-id="all">全部</button>`;
+        categories.forEach(cat => {
+             tabsContainer.innerHTML += `<button class="sticker-category-tab ${activeStickerCategoryId === cat.id ? 'active' : ''}" data-category-id="${cat.id}">${cat.name}</button>`;
+        });
+        tabsContainer.innerHTML += `<button class="sticker-category-tab ${activeStickerCategoryId === 'uncategorized' ? 'active' : ''}" data-category-id="uncategorized">未分类</button>`;
+    }
 
-            // --- 2. 渲染表情网格 ---
-            grid.innerHTML = '';
-            
-            // 根据当前选中的分类筛选表情
-            let stickersToShow;
-            if (activeStickerCategoryId === 'all') {
-                stickersToShow = state.userStickers;
-            } else if (activeStickerCategoryId === 'uncategorized') {
-                stickersToShow = state.userStickers.filter(s => !s.categoryId);
+    // --- 2. 渲染表情网格 ---
+    grid.innerHTML = '';
+    
+    // 【【【核心修改1：获取搜索词并过滤】】】
+    const searchTerm = document.getElementById('sticker-search-input').value.trim().toLowerCase();
+    
+    let stickersToShow;
+    if (activeStickerCategoryId === 'all') {
+        stickersToShow = state.userStickers;
+    } else if (activeStickerCategoryId === 'uncategorized') {
+        stickersToShow = state.userStickers.filter(s => !s.categoryId);
+    } else {
+        stickersToShow = state.userStickers.filter(s => s.categoryId === activeStickerCategoryId);
+    }
+
+    // 应用搜索过滤器
+    if (searchTerm) {
+        stickersToShow = stickersToShow.filter(sticker =>
+            (sticker.name || '').toLowerCase().includes(searchTerm)
+        );
+    }
+
+    if (stickersToShow.length === 0) {
+        grid.innerHTML = `<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1; padding-top: 20px;">${searchTerm ? '没有找到匹配的表情' : '这个分类下还没有表情哦~'}</p>`;
+        return;
+    }
+
+    stickersToShow.forEach(sticker => {
+        const item = document.createElement('div');
+        item.className = 'sticker-item';
+        item.dataset.stickerId = sticker.id;
+
+        // 【【【核心修改2：构建包含图片和名称的新HTML结构】】】
+        item.innerHTML = `
+            <div class="sticker-image-wrapper" style="background-image: url(${sticker.url});" title="${sticker.name}"></div>
+            <span class="sticker-name">${sticker.name}</span>
+        `;
+
+        item.addEventListener('click', () => {
+            if (isStickerManagementMode) {
+                handleStickerSelection(item);
             } else {
-                stickersToShow = state.userStickers.filter(s => s.categoryId === activeStickerCategoryId);
+                sendSticker(sticker);
             }
+        });
 
-            if (stickersToShow.length === 0) {
-                grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1; padding-top: 20px;">这个分类下还没有表情哦~</p>';
-                return;
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '&times;';
+        deleteBtn.onclick = async (e) => {
+            e.stopPropagation();
+            const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' });
+            if (confirmed) {
+                await db.userStickers.delete(sticker.id);
+                state.userStickers = state.userStickers.filter(s => s.id !== sticker.id);
+                renderStickerPanel(); // 重新渲染以反映删除
             }
-
-            stickersToShow.forEach(sticker => {
-                const item = document.createElement('div');
-                item.className = 'sticker-item';
-                item.style.backgroundImage = `url(${sticker.url})`;
-                item.title = sticker.name;
-                item.dataset.stickerId = sticker.id;
-
-                item.addEventListener('click', () => {
-                    if (isStickerManagementMode) {
-                        handleStickerSelection(item);
-                    } else {
-                        sendSticker(sticker);
-                    }
-                });
-
-                const deleteBtn = document.createElement('div');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.innerHTML = '&times;';
-                deleteBtn.onclick = async (e) => {
-                    e.stopPropagation();
-                    const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' });
-                    if (confirmed) {
-                        await db.userStickers.delete(sticker.id);
-                        state.userStickers = state.userStickers.filter(s => s.id !== sticker.id);
-                        renderStickerPanel();
-                    }
-                };
-                item.appendChild(deleteBtn);
-                grid.appendChild(item);
-            });
-        }
-        // ▲▲▲ 替换结束 ▲▲▲
+        };
+        // 【【【核心修改3：将删除按钮添加到图片包装器中】】】
+        item.querySelector('.sticker-image-wrapper').appendChild(deleteBtn);
+        grid.appendChild(item);
+    });
+}
+// ▲▲▲ 替换结束 ▲▲▲
         // ▼▼▼ 【全新】表情批量删除核心功能 ▼▼▼
         let isStickerManagementMode = false;
         let selectedStickers = new Set();
@@ -38810,6 +38907,29 @@ document.getElementById('data-clear-wizard-modal').addEventListener('change', (e
     }
 });
 // ▲▲▲ 新增事件绑定结束 ▲▲▲
+// ▼▼▼ 【全新】为表情包搜索功能绑定事件 ▼▼▼
+const stickerSearchInput = document.getElementById('sticker-search-input');
+const stickerSearchBtn = document.getElementById('sticker-search-btn');
+
+// 实时搜索：当用户在输入框中输入时就进行搜索
+stickerSearchInput.addEventListener('input', () => {
+    // 调用渲染函数，但传入 false，表示不需要重新渲染顶部的分类页签
+    renderStickerPanel(false);
+});
+
+// 点击搜索按钮也触发一次搜索（主要用于移动端确认）
+stickerSearchBtn.addEventListener('click', () => {
+    renderStickerPanel(false);
+});
+
+// 监听回车键进行搜索
+stickerSearchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault(); // 阻止回车键的默认行为（例如表单提交）
+        renderStickerPanel(false);
+    }
+});
+// ▲▲▲ 新增事件绑定结束 ▲▲▲
 document.getElementById('compress-images-btn').addEventListener('click', compressAllLocalImages);
 // ▼▼▼ 在 init() 的事件监听器区域，找到 #copy-message-btn 的监听器，在它后面粘贴新代码 ▼▼▼
 document.getElementById('copy-message-btn').addEventListener('click', copyMessageContent);
@@ -39050,42 +39170,67 @@ document.getElementById('copy-timestamp-btn').addEventListener('click', copyMess
 </div>
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 
+<!-- ▼▼▼ 【全新V2.0 | 安卓键盘终极修复】这是让输入框悬浮的核心JS代码 ▼▼▼ -->
 <script>
 /**
- * 核心修复函数：解决安卓手机输入法遮挡底部输入框的问题
- * * 原理：当输入框获得焦点时，延迟一段时间，等待键盘弹出，
- * 然后强制输入框本身滚动到视图中，确保它不会被键盘或底部导航栏遮挡。
+ * 核心修复函数 V2.0：使用 visualViewport API 智能悬浮输入框
+ * 
+ * 原理：
+ * 1. 监听现代浏览器提供的 visualViewport API 的 'resize' 事件。
+ * 2. 当键盘弹出时，这个可视区域的高度会变小。
+ * 3. 我们计算出键盘的高度，并将其设置为一个CSS变量。
+ * 4. 通过添加一个 'keyboard-visible' class，激活我们新写的CSS规则，
+ *    让输入框变为 position:fixed 并使用那个CSS变量，从而精确地悬浮在键盘顶部。
  */
-function setupAndroidKeyboardFix() {
-    // 找到你的聊天输入框（ID为 chat-input）
+function setupSmartKeyboardFix() {
+    const phoneScreen = document.getElementById('phone-screen');
     const chatInput = document.getElementById('chat-input');
+    
+    // 检查浏览器是否支持这个现代API
+    if ('visualViewport' in window) {
+        const viewport = window.visualViewport;
 
-    if (chatInput) {
-        // 监听输入框的 'focus' (获得焦点) 事件
+        // 定义当可视区域变化时要执行的函数
+        const viewportResizeHandler = () => {
+            // 键盘高度 = 整个窗口的高度 - 当前可见区域的高度
+            const keyboardHeight = window.innerHeight - viewport.height;
+            
+            // 设置我们之前在CSS里定义的那个变量
+            phoneScreen.style.setProperty('--keyboard-inset-height', `${keyboardHeight}px`);
+
+            // 如果键盘高度大于一个阈值（比如100px），就认为键盘已经弹出了
+            if (keyboardHeight > 100) {
+                phoneScreen.classList.add('keyboard-visible');
+            } else {
+                phoneScreen.classList.remove('keyboard-visible');
+            }
+        };
+
+        // 当用户点击输入框时，开始监听可视区域的变化
         chatInput.addEventListener('focus', () => {
-            // 使用 setTimeout 延迟执行，给键盘弹出留出时间
-            setTimeout(() => {
-                // 调用 scrollIntoView() 方法
-                // { behavior: 'smooth' } 使滚动更平滑
-                // { block: 'end' } 确保元素底部对齐视口底部 (即出现在键盘上方)
-                chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 300); // 300 毫秒的延迟通常足够了
+            viewport.addEventListener('resize', viewportResizeHandler);
         });
 
-        // 监听 'blur' (失去焦点) 事件，键盘收回时，防止页面停留在底部
+        // 当用户点击别处，输入框失去焦点时，停止监听并恢复原状
         chatInput.addEventListener('blur', () => {
-             // 延迟 50 毫秒后滚动到顶部，确保内容区回到最上方
-             setTimeout(() => {
-                // 仅在输入法不是因为切换输入法而失去焦点时执行
-                window.scrollTo(0, 0); 
-            }, 50);
+            viewport.removeEventListener('resize', viewportResizeHandler);
+            phoneScreen.classList.remove('keyboard-visible');
+        });
+
+    } else {
+        // 如果浏览器太老，不支持新API，就回退到旧的、不太可靠的方法
+        console.warn("浏览器不支持 visualViewport API，键盘遮挡问题可能无法完美解决。");
+        chatInput.addEventListener('focus', () => {
+            setTimeout(() => {
+                chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 300);
         });
     }
 }
 
 // 确保在所有DOM元素加载完毕后执行修复函数
-document.addEventListener('DOMContentLoaded', setupAndroidKeyboardFix);
+document.addEventListener('DOMContentLoaded', setupSmartKeyboardFix);
 </script>
-
+<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 </body>
 </html>
