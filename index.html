@@ -9093,28 +9093,30 @@ input, textarea, select {
     display: block;
 }
 /* ▲▲▲ 新增样式结束 ▲▲▲ */
-/* ▼▼▼ 【全新V3.0 | 安卓键盘终极修复 - 手动调节版】 ▼▼▼ */
+/* ▼▼▼ 【全新V2.0 | 安卓键盘终极修复】这是让输入框悬浮的核心样式 ▼▼▼ */
 
-/* 1. 当JS为 #phone-screen 添加 'keyboard-active' 类时，激活以下样式 */
-#phone-screen.keyboard-active #chat-interface-screen {
-    position: relative; /* 保持定位锚点 */
+/* 1. 当键盘弹出时，为聊天界面添加一个class，用它来控制内部元素的行为 */
+#phone-screen.keyboard-visible #chat-interface-screen {
+    /* 确保聊天界面依然是定位的锚点 */
+    position: relative;
 }
 
-/* 2. 【核心】让输入框区域变为固定定位，并使用我们自定义的CSS变量来控制其底部距离 */
-#phone-screen.keyboard-active #chat-input-area {
-    position: fixed;
+/* 2. 【核心】让输入框区域“脱离”文档流，变为固定定位，悬浮在所有内容之上 */
+#phone-screen.keyboard-visible #chat-input-area {
+    position: fixed; /* 从 absolute 改为 fixed，这是悬浮的关键 */
     left: 0;
     right: 0;
-    width: auto;
-    z-index: 250;
-    /* 【关键】使用 --manual-keyboard-offset 变量，如果未设置则默认为0 */
-    bottom: var(--manual-keyboard-offset, 0px);
-    transition: bottom 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    width: auto; /* 宽度自动撑满 */
+    z-index: 250; /* 确保层级最高，不会被任何东西遮挡 */
+    /* 【关键】使用CSS变量来动态设置它距离底部的距离，这个值将由JS计算得出 */
+    bottom: var(--keyboard-inset-height, 0px);
+    transition: bottom 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* 添加平滑的弹出动画 */
 }
 
-/* 3. 【重要】当键盘激活时，为聊天消息区域增加内边距，防止最后一条消息被遮挡 */
-#phone-screen.keyboard-active #chat-messages {
-    padding-bottom: 150px !important;
+/* 3. 【重要】当键盘弹出时，为聊天消息区域增加一个底部的内边距 */
+/*    这个内边距的高度约等于输入框的高度，确保最后一条消息不会被悬浮的输入框遮挡 */
+#phone-screen.keyboard-visible #chat-messages {
+    padding-bottom: 150px !important; /* 使用 !important 强制覆盖旧样式 */
 }
 
 /* ▲▲▲ 新增样式结束 ▲▲▲ */
@@ -10376,21 +10378,7 @@ input, textarea, select {
                         <span class="slider"></span>
                     </label>
                 </div>
-<!-- ▼▼▼ 【全新】这是为安卓键盘悬浮高度新增的设置项 ▼▼▼ -->
-<hr style="width: 80%; opacity: 0.3; margin: 30px 0;">
-<div class="form-group" style="width:100%;">
-    <label for="manual-keyboard-offset-input">
-        聊天输入框弹出高度 (px)
-        <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px; line-height: 1.6;">
-            这是一个针对部分安卓手机键盘遮挡问题的【手动】解决方案。<br>
-            <strong>·</strong> 如果您有底部导航栏，建议设置为 <strong>50-80</strong>。<br>
-            <strong>·</strong> 如果您是全面屏手势，建议设置为 <strong>10-20</strong>。<br>
-            <strong>·</strong> 设置为 <strong>0</strong> 则不弹出。
-        </p>
-    </label>
-    <input type="number" id="manual-keyboard-offset-input" value="0" style="width: 100%; text-align: center;">
-</div>
-<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
+                
                 <!-- 提示音设置 -->
                 <hr style="width: 80%; opacity: 0.3; margin: 30px 0;">
                 <div style="width:100%; text-align: left; margin-bottom: 15px;">
@@ -39182,50 +39170,87 @@ document.getElementById('copy-timestamp-btn').addEventListener('click', copyMess
 </div>
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 
-<!-- ▼▼▼ 【全新V3.0 | 安卓键盘终极修复 - 手动调节版】 ▼▼▼ -->
+<!-- ▼▼▼ 【全新V2.0 | 安卓键盘终极修复】这是让输入框悬浮的核心JS代码 ▼▼▼ -->
 <script>
 /**
- * 核心修复函数 V3.0：基于用户设置，在输入框聚焦时手动触发悬浮
- *
+ * 核心修复函数 V2.0：使用 visualViewport API 智能悬浮输入框
+ * 
  * 原理：
- * 1. 监听输入框的 'focus' (获得焦点) 事件。
- * 2. 当触发时，读取用户在外观设置中保存的高度值。
- * 3. 将这个高度值设置到CSS变量 --manual-keyboard-offset 中。
- * 4. 为主容器添加 'keyboard-active' 类，激活我们新写的悬浮CSS。
- * 5. 当输入框失去焦点 ('blur') 时，移除类并恢复原状。
+ * 1. 监听现代浏览器提供的 visualViewport API 的 'resize' 事件。
+ * 2. 当键盘弹出时，这个可视区域的高度会变小。
+ * 3. 我们计算出键盘的高度，并将其设置为一个CSS变量。
+ * 4. 通过添加一个 'keyboard-visible' class，激活我们新写的CSS规则，
+ *    让输入框变为 position:fixed 并使用那个CSS变量，从而精确地悬浮在键盘顶部。
  */
-function setupManualKeyboardFix() {
+function setupSmartKeyboardFix() {
     const phoneScreen = document.getElementById('phone-screen');
     const chatInput = document.getElementById('chat-input');
-    const chatInputArea = document.getElementById('chat-input-area');
+    
+    // 检查浏览器是否支持这个现代API
+    if ('visualViewport' in window) {
+        const viewport = window.visualViewport;
 
-    // 监听输入框获得焦点
-    chatInput.addEventListener('focus', () => {
-        // 从全局设置中读取用户保存的高度值，如果不存在则默认为0
-        const offset = state.globalSettings.manualKeyboardOffset || 0;
+        // 定义当可视区域变化时要执行的函数
+        const viewportResizeHandler = () => {
+            // 键盘高度 = 整个窗口的高度 - 当前可见区域的高度
+            const keyboardHeight = window.innerHeight - viewport.height;
+            
+            // 设置我们之前在CSS里定义的那个变量
+            phoneScreen.style.setProperty('--keyboard-inset-height', `${keyboardHeight}px`);
 
-        // 将这个高度值设置到CSS变量中
-        phoneScreen.style.setProperty('--manual-keyboard-offset', `${offset}px`);
-        
-        // 添加class来激活悬浮效果
-        phoneScreen.classList.add('keyboard-active');
-        
-        // 稍微延迟后，将输入框滚动到视图中，确保光标可见
-        setTimeout(() => {
-            chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 100);
-    });
+            // 如果键盘高度大于一个阈值（比如100px），就认为键盘已经弹出了
+            if (keyboardHeight > 100) {
+                phoneScreen.classList.add('keyboard-visible');
+            } else {
+                phoneScreen.classList.remove('keyboard-visible');
+            }
+        };
 
-    // 监听输入框失去焦点
-    chatInput.addEventListener('blur', () => {
-        // 移除class，恢复原始布局
-        phoneScreen.classList.remove('keyboard-active');
-    });
+        // 当用户点击输入框时，开始监听可视区域的变化
+        chatInput.addEventListener('focus', () => {
+            viewport.addEventListener('resize', viewportResizeHandler);
+        });
+
+        // 当用户点击别处，输入框失去焦点时，停止监听并恢复原状
+        chatInput.addEventListener('blur', () => {
+            viewport.removeEventListener('resize', viewportResizeHandler);
+            phoneScreen.classList.remove('keyboard-visible');
+        });
+
+    } else {
+        // 如果浏览器太老，不支持新API，就回退到旧的、不太可靠的方法
+        console.warn("浏览器不支持 visualViewport API，键盘遮挡问题可能无法完美解决。");
+        chatInput.addEventListener('focus', () => {
+            setTimeout(() => {
+                chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 300);
+        });
+    }
 }
 
 // 确保在所有DOM元素加载完毕后执行修复函数
-document.addEventListener('DOMContentLoaded', setupManualKeyboardFix);
+document.addEventListener('DOMContentLoaded', setupSmartKeyboardFix);
 </script>
 <!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
