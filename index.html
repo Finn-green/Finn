@@ -39059,7 +39059,7 @@ document.getElementById('copy-timestamp-btn').addEventListener('click', copyMess
 function setupAndroidKeyboardFix() {
     // 找到你的聊天输入框（ID为 chat-input）
     const chatInput = document.getElementById('chat-input');
-    
+
     if (chatInput) {
         // 监听输入框的 'focus' (获得焦点) 事件
         chatInput.addEventListener('focus', () => {
@@ -39071,7 +39071,7 @@ function setupAndroidKeyboardFix() {
                 chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
             }, 300); // 300 毫秒的延迟通常足够了
         });
-        
+
         // 监听 'blur' (失去焦点) 事件，键盘收回时，防止页面停留在底部
         chatInput.addEventListener('blur', () => {
              // 延迟 50 毫秒后滚动到顶部，确保内容区回到最上方
@@ -39086,25 +39086,6 @@ function setupAndroidKeyboardFix() {
 // 确保在所有DOM元素加载完毕后执行修复函数
 document.addEventListener('DOMContentLoaded', setupAndroidKeyboardFix);
 </script>
+
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
